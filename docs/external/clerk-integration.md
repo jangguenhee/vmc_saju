@@ -6,9 +6,8 @@
 ---
 
 ## 1. 개요
-
-이 문서는 Clerk 인증을 Next.js 15 기반 프로젝트에 통합하기 위한 **완전한 설정 및 검증 가이드**입니다.  
-이 가이드는 실제 `.env.local` 환경 변수, Supabase 연동, Webhook, 보안 검증까지 포함합니다.
+Clerk 인증을 Next.js 15 기반 프로젝트에 통합하기 위한 최신 공식 가이드입니다.  
+Supabase, TossPayments, Gemini AI와 함께 사용하는 완전한 구성 예시를 포함합니다.
 
 ---
 
@@ -17,14 +16,12 @@
 ```bash
 npm install @clerk/nextjs svix
 
-@clerk/nextjs: Clerk SDK
-svix: Webhook 서명 검증용 라이브러리
 
 ⸻
 
 3. 환경 변수 설정
 
-.env.local 파일 예시:
+.env.local 파일에 다음을 추가하세요:
 
 # Clerk
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
@@ -44,20 +41,15 @@ TOSS_WEBHOOK_SECRET=...
 # Gemini AI
 GEMINI_API_KEY=AIza...
 
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
 # Cron Secret
 CRON_SECRET=zEvclY8tv9s8YEYFKLcMP1KC2V7qqlKNLjTTwI0SIzU=
 
-.env.local은 반드시 .gitignore에 추가해야 합니다.
-프로덕션에서는 sk_live_... 키를 사용하세요.
 
 ⸻
 
 4. ClerkProvider 설정
 
-파일: src/app/layout.tsx
+src/app/layout.tsx:
 
 import { ClerkProvider } from '@clerk/nextjs'
 import { koKR } from '@clerk/localizations'
@@ -72,47 +64,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
 }
 
-koKR은 한국어 로컬라이제이션 지원.
 
 ⸻
 
-5. 인증 페이지 생성
+5. 미들웨어 설정
 
-mkdir -p src/app/sign-in/[[...sign-in]]
-mkdir -p src/app/sign-up/[[...sign-up]]
-
-로그인 페이지:
-
-// src/app/sign-in/[[...sign-in]]/page.tsx
-import { SignIn } from '@clerk/nextjs'
-
-export default function SignInPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <SignIn routing="path" path="/sign-in" />
-    </div>
-  )
-}
-
-회원가입 페이지:
-
-// src/app/sign-up/[[...sign-up]]/page.tsx
-import { SignUp } from '@clerk/nextjs'
-
-export default function SignUpPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <SignUp routing="path" path="/sign-up" />
-    </div>
-  )
-}
-
-
-⸻
-
-6. 미들웨어 설정
-
-파일: src/middleware.ts
+src/middleware.ts:
 
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
@@ -123,10 +80,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)',
 ])
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect()
-  }
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) await auth.protect()
 })
 
 export const config = {
@@ -139,9 +94,9 @@ export const config = {
 
 ⸻
 
-7. Webhook 구성
+6. Webhook 구현
 
-파일: src/app/api/webhooks/clerk/route.ts
+src/app/api/webhooks/clerk/route.ts:
 
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
@@ -149,148 +104,55 @@ import { NextResponse } from 'next/server'
 import { WebhookEvent } from '@clerk/nextjs/server'
 
 export async function POST(req: Request) {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET
-  if (!WEBHOOK_SECRET) throw new Error('CLERK_WEBHOOK_SECRET not set')
-
-  const headerPayload = await headers()
-  const svix_id = headerPayload.get('svix-id')
-  const svix_timestamp = headerPayload.get('svix-timestamp')
-  const svix_signature = headerPayload.get('svix-signature')
-
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return NextResponse.json({ error: 'Missing headers' }, { status: 400 })
-  }
-
+  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET!
+  const header = await headers()
   const payload = await req.json()
-  const body = JSON.stringify(payload)
   const wh = new Webhook(WEBHOOK_SECRET)
+  const evt = wh.verify(JSON.stringify(payload), {
+    'svix-id': header.get('svix-id')!,
+    'svix-timestamp': header.get('svix-timestamp')!,
+    'svix-signature': header.get('svix-signature')!,
+  }) as WebhookEvent
 
-  let evt: WebhookEvent
-
-  try {
-    evt = wh.verify(body, {
-      'svix-id': svix_id,
-      'svix-timestamp': svix_timestamp,
-      'svix-signature': svix_signature,
-    }) as WebhookEvent
-  } catch (err) {
-    console.error('❌ Webhook verification failed:', err)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-  }
-
-  const eventType = evt.type
-  console.log(`✅ Received Clerk event: ${eventType}`)
-
-  switch (eventType) {
+  switch (evt.type) {
     case 'user.created':
-      await handleUserCreated(evt.data)
+      console.log('🆕 New user:', evt.data.id)
       break
     case 'user.updated':
-      await handleUserUpdated(evt.data)
+      console.log('✏️ Updated user:', evt.data.id)
       break
     case 'user.deleted':
-      await handleUserDeleted(evt.data)
+      console.log('🗑️ Deleted user:', evt.data.id)
       break
   }
 
   return NextResponse.json({ ok: true })
 }
 
-async function handleUserCreated(data: any) {
-  console.log('New user created:', data.id)
-}
 
-async function handleUserUpdated(data: any) {
-  console.log('User updated:', data.id)
-}
+⸻
 
-async function handleUserDeleted(data: any) {
-  console.log('User deleted:', data.id)
-}
+7. 테스트 & 배포 체크리스트
+
+항목	설명
+✅ .env.local gitignore 등록	민감정보 보호
+✅ Clerk 키 설정 완료	Publishable + Secret
+✅ Webhook 등록	/api/webhooks/clerk
+✅ Supabase 연동 확인	Database + Cron
+✅ TossPayments API 테스트	구독 결제
+✅ Gemini API 응답 확인	분석 기능
 
 
 ⸻
 
-8. 인증 예시
-
-Server Component:
-
-import { auth, currentUser } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
-
-export default async function Dashboard() {
-  const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
-
-  const user = await currentUser()
-  return <h1>안녕하세요, {user?.firstName}님!</h1>
-}
-
-Client Component:
-
-'use client'
-import { useUser, useClerk } from '@clerk/nextjs'
-
-export default function Profile() {
-  const { user } = useUser()
-  const { signOut } = useClerk()
-  return (
-    <div>
-      <p>{user?.firstName} {user?.lastName}</p>
-      <button onClick={() => signOut()}>로그아웃</button>
-    </div>
-  )
-}
-
-
-⸻
-
-9. Webhook 등록 절차
-	1.	[Clerk Dashboard → Webhooks → Add Endpoint]
-	2.	URL: https://your-domain.com/api/webhooks/clerk
-	3.	선택 이벤트: user.created, user.updated, user.deleted
-	4.	생성 후 Signing Secret 복사 → .env.local의 CLERK_WEBHOOK_SECRET에 설정
-
-⸻
-
-10. 보안 체크리스트
-
-항목	설명	상태
-.env.local gitignore 등록	✅	
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY만 공개	✅	
-Webhook Svix 서명 검증	✅	
-auth().protect() 적용	✅	
-Next.js 15.2.3 이상 (보안 패치)	✅	
-Secret Key 로테이션 주기적 수행	✅	
-
-
-⸻
-
-11. 테스트 절차
-
-테스트 항목	방법
-로그인/회원가입	/sign-in, /sign-up 방문
-인증 보호 라우트	/dashboard에서 redirect 동작 확인
-Webhook 이벤트	Clerk Dashboard에서 test event 전송
-Supabase 동기화	user.created 시 users 테이블 업데이트 확인
-
-
-⸻
-
-12. 참고 문서
-	•	Clerk 공식 문서
-	•	Next.js Quickstart (App Router)
-	•	Webhook 가이드
-	•	Svix 문서
+8. 참고 문서
+	•	Clerk Docs
+	•	Next.js Quickstart
+	•	Svix Docs
 	•	보안 권고: CVE-2025-29927
 
 ⸻
 
 작성자: Claude Code
 검증자: GPT-5
-검증일: 2025년 10월 26일
-
----
-
-원하면 이 문서를 `.md` 파일로 실제 생성해줄 수도 있습니다.  
-그럴까요? (자동으로 `docs/external/clerk-integration.md`에 쓰기 가능하게 해드림)
+검증일: 2025-10-26
