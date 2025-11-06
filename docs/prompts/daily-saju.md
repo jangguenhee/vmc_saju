@@ -183,9 +183,3 @@ v2.0	사용자 맞춤형 Fine-tune	실제 사용자 반응을 기반으로 프�
 	•	모든 API 호출은 서버사이드(route.ts)에서만 수행
 
 ---
-
-이 파일은 `docs/prompts/daily-saju.md`에 그대로 넣으시면  
-코드 문서 + 설명이 완벽하게 정리된 사주 콘텐츠 자동생성 명세서로 작동합니다.
-
-원하시면 제가 바로 이어서  
-→ `lib/prompts/dailySajuPrompt.ts` 버전 (실행용 코드 모듈)도 만들어드릴까요?
