@@ -65,7 +65,7 @@ GEMINI_API_KEY=your_gemini_api_key
 /docs
  ├─ requirement.md       # 요구사항 명세서
  ├─ spec.md              # 상세 기술 스펙
- └─ prompt/
+ └─ prompts/
      └─ external.md      # API 연동 가이드
 
 /src

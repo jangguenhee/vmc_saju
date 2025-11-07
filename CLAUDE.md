@@ -222,7 +222,7 @@ if (!parsed.success) {
 
 ### AI Analysis (Gemini)
 
-**Prompt Strategy** (see `docs/prompts/daily-saju.md` for full prompts):
+**Prompt Strategy** (see `docs/s/daily-saju.md` for full prompts):
 - Free tier: `gemini-2.5-flash` with basic Saju analysis
 - Paid tier: `gemini-2.5-pro` with detailed daily fortune
 - Response format: Markdown
