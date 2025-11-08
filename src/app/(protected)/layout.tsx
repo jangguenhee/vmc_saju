@@ -2,31 +2,27 @@
 
 import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
-import { LOGIN_PATH } from "@/constants/auth";
-
-const buildRedirectUrl = (pathname: string) => {
-  const redirectUrl = new URL(LOGIN_PATH, window.location.origin);
-  redirectUrl.searchParams.set("redirectedFrom", pathname);
-  return redirectUrl.toString();
-};
+import { useAuth } from "@clerk/nextjs";
 
 type ProtectedLayoutProps = {
   children: ReactNode;
 };
 
 export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
-  const { isAuthenticated, isLoading } = useCurrentUser();
+  const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace(buildRedirectUrl(pathname));
+    if (isLoaded && !isSignedIn) {
+      const signInUrl = new URL("/sign-in", window.location.origin);
+      signInUrl.searchParams.set("redirect_url", pathname);
+      router.replace(signInUrl.toString());
     }
-  }, [isAuthenticated, isLoading, pathname, router]);
+  }, [isSignedIn, isLoaded, pathname, router]);
 
-  if (!isAuthenticated) {
+  // Show nothing while loading or if not signed in
+  if (!isLoaded || !isSignedIn) {
     return null;
   }
 

@@ -1,75 +1,43 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import type { Database } from "@/lib/supabase/types";
-import { env } from "@/constants/env";
-import {
-  LOGIN_PATH,
-  isAuthEntryPath,
-  shouldProtectPath,
-} from "@/constants/auth";
-import { match } from "ts-pattern";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const copyCookies = (from: NextResponse, to: NextResponse) => {
-  from.cookies.getAll().forEach((cookie) => {
-    to.cookies.set({
-      name: cookie.name,
-      value: cookie.value,
-      path: cookie.path,
-      expires: cookie.expires,
-      httpOnly: cookie.httpOnly,
-      maxAge: cookie.maxAge,
-      sameSite: cookie.sameSite,
-      secure: cookie.secure,
-    });
-  });
+// Define public routes that don't require authentication
+// These routes are accessible without signing in
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhooks/(.*)",
+  "/docs(.*)",
+  "/images(.*)",
+  "/static(.*)",
+]);
 
-  return to;
-};
+export default clerkMiddleware(async (auth, req) => {
+  const { userId } = await auth();
+  const { pathname } = req.nextUrl;
 
-export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({ request });
+  // Allow public routes
+  if (isPublicRoute(req)) {
+    return NextResponse.next();
+  }
 
-  const supabase = createServerClient<Database>(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set({ name, value, ...options });
-            response.cookies.set({ name, value, ...options });
-          });
-        },
-      },
-    }
-  );
+  // Redirect unauthenticated users to sign-in
+  if (!userId) {
+    const signInUrl = new URL("/sign-in", req.url);
+    signInUrl.searchParams.set("redirect_url", pathname);
+    return NextResponse.redirect(signInUrl);
+  }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const decision = match({ user, pathname: request.nextUrl.pathname })
-    .when(
-      ({ user: currentUser, pathname }) =>
-        !currentUser && shouldProtectPath(pathname),
-      ({ pathname }) => {
-        const loginUrl = request.nextUrl.clone();
-        loginUrl.pathname = LOGIN_PATH;
-        loginUrl.searchParams.set("redirectedFrom", pathname);
-
-        return copyCookies(response, NextResponse.redirect(loginUrl));
-      }
-    )
-    .otherwise(() => response);
-
-  return decision;
-}
+  // Authenticated users can proceed
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Skip Next.js internals and all static files, unless found in search params
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Always run for API routes
+    "/(api|trpc)(.*)",
   ],
 };

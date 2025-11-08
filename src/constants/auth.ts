@@ -1,11 +1,19 @@
 import { match } from "ts-pattern";
 
-const PUBLIC_PATHS = ["/", "/login", "/signup"] as const;
-const PUBLIC_PREFIXES = ["/_next", "/api", "/favicon", "/static", "/docs", "/images"] as const;
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up"] as const;
+const PUBLIC_PREFIXES = [
+  "/_next",
+  "/api",
+  "/favicon",
+  "/static",
+  "/docs",
+  "/images",
+] as const;
 
-export const LOGIN_PATH = "/login";
-export const SIGNUP_PATH = "/signup";
-export const AUTH_ENTRY_PATHS = [LOGIN_PATH, SIGNUP_PATH] as const;
+export const SIGN_IN_PATH = "/sign-in";
+export const SIGN_UP_PATH = "/sign-up";
+export const AUTH_ENTRY_PATHS = [SIGN_IN_PATH, SIGN_UP_PATH] as const;
+
 export const isAuthEntryPath = (
   pathname: string
 ): pathname is (typeof AUTH_ENTRY_PATHS)[number] =>
@@ -26,4 +34,5 @@ export const isAuthPublicPath = (pathname: string) => {
     .otherwise(() => false);
 };
 
-export const shouldProtectPath = (pathname: string) => !isAuthPublicPath(pathname);
+export const shouldProtectPath = (pathname: string) =>
+  !isAuthPublicPath(pathname);

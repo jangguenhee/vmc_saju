@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Tech Stack**:
 - **Frontend**: Next.js 16 (App Router), React 19, TailwindCSS 4
-- **Authentication**: Clerk SDK (Google OAuth) + Supabase Auth
+- **Authentication**: Clerk SDK (Google OAuth)
 - **Database**: Supabase (PostgreSQL with RLS)
 - **Payments**: TossPayments SDK (subscription billing)
 - **AI**: Google Gemini API (`gemini-2.5-flash` for free, `gemini-2.5-pro` for paid)
@@ -102,20 +102,23 @@ src/features/{feature-name}/
 
 ### Authentication Architecture
 
-**Dual Auth System**: Clerk (primary) + Supabase Auth (middleware only)
+**Clerk-Only Authentication**: All authentication handled by Clerk SDK (Google OAuth)
 
-1. **Clerk**: Handles all user authentication (Google OAuth)
+1. **Clerk**: Handles all user authentication and session management
    - Webhook at `/api/webhooks/clerk` syncs users to Supabase `users` table
    - User ID is TEXT type (Clerk's user ID format)
+   - Sign-in page: `/sign-in` (Clerk pre-built component)
+   - Sign-up page: `/sign-up` (Clerk pre-built component)
 
-2. **Supabase Auth**: Used only in `middleware.ts` for route protection
-   - Checks authentication state
-   - Redirects unauthenticated users to `/login`
+2. **Middleware**: Route protection using `clerkMiddleware`
+   - Checks Clerk session state in `middleware.ts`
+   - Redirects unauthenticated users to `/sign-in`
+   - Public routes defined via `createRouteMatcher`
 
 **Protected Routes**:
 - Defined in `src/constants/auth.ts`
 - All routes except PUBLIC_PATHS and PUBLIC_PREFIXES require auth
-- Middleware (`middleware.ts`) enforces protection
+- Clerk middleware (`middleware.ts`) enforces protection
 
 **IMPORTANT**: When querying Supabase from API routes, use **Service Role Key** (not anon key) because RLS policies are configured for service role access only.
 
@@ -348,7 +351,7 @@ Reference these files when implementing features:
 2. **Service Role Key Usage**
    - Client should NEVER access Supabase directly
    - All DB operations go through API routes with Service Role Key
-   - Middleware uses anon key only for auth state check
+   - Authentication is handled entirely by Clerk (no Supabase auth)
 
 3. **TypeScript Configuration**
    - `strictNullChecks: false` - handle nulls carefully
@@ -404,8 +407,9 @@ src/
 │   ├── api/[[...hono]]/route.ts    # Single API entry point
 │   ├── (protected)/                # Auth-required pages
 │   │   └── dashboard/page.tsx
-│   ├── login/page.tsx
-│   └── layout.tsx                  # Root layout
+│   ├── sign-in/[[...sign-in]]/page.tsx  # Clerk sign-in
+│   ├── sign-up/[[...sign-up]]/page.tsx  # Clerk sign-up
+│   └── layout.tsx                  # Root layout with ClerkProvider
 ├── backend/
 │   ├── hono/app.ts                 # Hono app setup
 │   ├── middleware/                 # Shared middleware
@@ -420,7 +424,7 @@ src/
 ├── constants/
 │   ├── env.ts                      # Environment variables
 │   └── auth.ts                     # Auth path configuration
-└── middleware.ts                   # Next.js middleware (route protection)
+└── middleware.ts                   # Clerk middleware (route protection)
 
 docs/
 ├── requirment.md                   # Full requirements spec

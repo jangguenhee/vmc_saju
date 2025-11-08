@@ -3,9 +3,15 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, CheckCircle2, Boxes, Database, LogOut, Server } from "lucide-react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import {
+  Copy,
+  CheckCircle2,
+  Boxes,
+  Database,
+  LogOut,
+  Server,
+} from "lucide-react";
+import { useUser, useClerk } from "@clerk/nextjs";
 
 type SetupCommand = {
   id: string;
@@ -21,8 +27,12 @@ const setupCommands: SetupCommand[] = [
 
 const envVariables = [
   {
-    key: "SUPABASE_URL",
-    description: "Supabase 프로젝트 URL (https://...supabase.co)",
+    key: "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    description: "Clerk 공개 키 (클라이언트에서 사용)",
+  },
+  {
+    key: "CLERK_SECRET_KEY",
+    description: "Clerk 비밀 키 (서버 전용)",
   },
   {
     key: "SUPABASE_SERVICE_ROLE_KEY",
@@ -56,19 +66,19 @@ const directorySummary = [
 
 const backendBuildingBlocks = [
   {
-    icon: <Server className="w-4 h-4" />,
+    icon: <Server className="h-4 w-4" />,
     title: "Hono 앱 구성",
     description:
       "errorBoundary → withAppContext → withSupabase → registerExampleRoutes 순서로 미들웨어와 라우터를 조립합니다.",
   },
   {
-    icon: <Database className="w-4 h-4" />,
+    icon: <Database className="h-4 w-4" />,
     title: "Supabase 서비스",
     description:
       "service-role 키로 생성한 서버 클라이언트를 사용하고, 쿼리 결과는 ts-pattern으로 분기 가능한 결과 객체로 반환합니다.",
   },
   {
-    icon: <Boxes className="w-4 h-4" />,
+    icon: <Boxes className="h-4 w-4" />,
     title: "React Query 연동",
     description:
       "모든 클라이언트 데이터 패칭은 useExampleQuery와 같은 React Query 훅을 통해 수행하며, DTO 스키마로 응답을 검증합니다.",
@@ -77,27 +87,28 @@ const backendBuildingBlocks = [
 
 export default function Home() {
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
-  const { user, isAuthenticated, isLoading, refresh } = useCurrentUser();
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
 
   const handleSignOut = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    await refresh();
+    await signOut();
     router.replace("/");
-  }, [refresh, router]);
+  }, [signOut, router]);
 
   const authActions = useMemo(() => {
-    if (isLoading) {
-      return (
-        <span className="text-sm text-slate-300">세션 확인 중...</span>
-      );
+    if (!isLoaded) {
+      return <span className="text-sm text-slate-300">세션 확인 중...</span>;
     }
 
-    if (isAuthenticated && user) {
+    if (user) {
       return (
         <div className="flex items-center gap-3 text-sm text-slate-200">
-          <span className="truncate">{user.email ?? "알 수 없는 사용자"}</span>
+          <span className="truncate">
+            {user.primaryEmailAddress?.emailAddress ??
+              user.fullName ??
+              "알 수 없는 사용자"}
+          </span>
           <div className="flex items-center gap-2">
             <Link
               href="/dashboard"
@@ -121,20 +132,20 @@ export default function Home() {
     return (
       <div className="flex items-center gap-3 text-sm">
         <Link
-          href="/login"
+          href="/sign-in"
           className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-slate-400 hover:bg-slate-800"
         >
           로그인
         </Link>
         <Link
-          href="/signup"
+          href="/sign-up"
           className="rounded-md bg-slate-100 px-3 py-1 text-slate-900 transition hover:bg-white"
         >
           회원가입
         </Link>
       </div>
     );
-  }, [handleSignOut, isAuthenticated, isLoading, user]);
+  }, [handleSignOut, isLoaded, user]);
 
   const handleCopy = (command: string) => {
     navigator.clipboard.writeText(command);
@@ -147,16 +158,16 @@ export default function Home() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-16">
         <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/80 px-6 py-4">
           <div className="text-sm font-medium text-slate-300">
-            SuperNext — 구조적인 Next.js + Supabase 템플릿
+            365일 사주 — AI 사주 분석 서비스
           </div>
           {authActions}
         </div>
         <header className="space-y-4">
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-            SuperNext 프로젝트 설정 & 구조 안내서
+            365일 사주 프로젝트 설정 & 구조 안내서
           </h1>
           <p className="max-w-3xl text-base text-slate-300 md:text-lg">
-            React Query / Hono.js / Supabase를 사용합니다.
+            Clerk Authentication / Hono.js / Supabase / Gemini AI를 사용합니다.
             <br /> 모든 컴포넌트는 Client Component로 작성합니다.
           </p>
         </header>
@@ -173,13 +184,11 @@ export default function Home() {
 
         <footer className="rounded-xl border border-slate-700 bg-slate-900/60 p-6">
           <h2 className="text-lg font-semibold text-slate-100">
-            Supabase Migration
+            Authentication & Database
           </h2>
           <p className="mt-2 text-sm text-slate-300">
-            `supabase/migrations/20250227000100_create_example_table.sql` 파일을
-            Supabase 대시보드 SQL Editor에 업로드하여 `public.example` 테이블과
-            샘플 데이터를 생성하세요. 서비스 역할 키는 서버 환경 변수에만
-            저장하고, React Query 훅에서는 공개 API만 호출합니다.
+            Clerk를 통해 Google OAuth 인증을 제공하며, Clerk Webhook을 통해 사용자 정보를 Supabase에 동기화합니다.
+            서비스 역할 키는 서버 환경 변수에만 저장하고, React Query 훅에서는 공개 API만 호출합니다.
           </p>
         </footer>
       </div>
@@ -196,9 +205,7 @@ function SetupChecklist({
 }) {
   return (
     <div className="space-y-4 rounded-xl border border-slate-700 bg-slate-900/60 p-6">
-      <h2 className="text-lg font-semibold text-slate-100">
-        SuperNext 설치 체크리스트
-      </h2>
+      <h2 className="text-lg font-semibold text-slate-100">설치 체크리스트</h2>
       <ul className="space-y-3">
         {setupCommands.map((item) => (
           <li key={item.id} className="flex items-start justify-between gap-3">
@@ -233,8 +240,8 @@ function EnvironmentGuide() {
     <div className="space-y-4 rounded-xl border border-slate-700 bg-slate-900/60 p-6">
       <h2 className="text-lg font-semibold text-slate-100">환경 변수</h2>
       <p className="text-sm text-slate-300">
-        `.env.local` 파일에 아래 값을 추가하고, service-role 키는 서버 빌드
-        환경에서만 주입하세요.
+        `.env.local` 파일에 아래 값을 추가하고, 비밀 키는 서버 빌드 환경에서만
+        주입하세요.
       </p>
       <ul className="space-y-3">
         {envVariables.map((item) => (
@@ -248,8 +255,8 @@ function EnvironmentGuide() {
         ))}
       </ul>
       <p className="text-xs text-slate-400">
-        환경 스키마는 `src/backend/config/index.ts`에서 zod로 검증되며, 누락 시
-        명확한 오류를 발생시킵니다.
+        환경 스키마는 `src/constants/env.ts`에서 zod로 검증되며, 누락 시 명확한
+        오류를 발생시킵니다.
       </p>
     </div>
   );
@@ -258,9 +265,7 @@ function EnvironmentGuide() {
 function DirectoryOverview() {
   return (
     <div className="space-y-4 rounded-xl border border-slate-700 bg-slate-900/60 p-6">
-      <h2 className="text-lg font-semibold text-slate-100">
-        SuperNext 주요 디렉터리
-      </h2>
+      <h2 className="text-lg font-semibold text-slate-100">주요 디렉터리</h2>
       <ul className="space-y-3">
         {directorySummary.map((item) => (
           <li
@@ -281,7 +286,7 @@ function BackendOverview() {
   return (
     <div className="space-y-4 rounded-xl border border-slate-700 bg-slate-900/60 p-6">
       <h2 className="text-lg font-semibold text-slate-100">
-        SuperNext 백엔드 빌딩 블록
+        백엔드 빌딩 블록
       </h2>
       <ul className="space-y-3">
         {backendBuildingBlocks.map((item, index) => (
