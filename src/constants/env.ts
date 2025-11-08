@@ -17,6 +17,8 @@ const serverEnvSchema = z.object({
   TOSS_SECRET_KEY: z.string().min(1),
   TOSS_WEBHOOK_SECRET: z.string().min(1),
   GEMINI_API_KEY: z.string().min(1),
+  GEMINI_FLASH_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+  GEMINI_PRO_MODEL: z.string().min(1).default("gemini-2.5-pro"),
   CRON_SECRET: z.string().min(1),
 });
 
@@ -35,6 +37,8 @@ const _serverEnv = serverEnvSchema.safeParse({
   TOSS_SECRET_KEY: process.env.TOSS_SECRET_KEY,
   TOSS_WEBHOOK_SECRET: process.env.TOSS_WEBHOOK_SECRET,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  GEMINI_FLASH_MODEL: process.env.GEMINI_FLASH_MODEL,
+  GEMINI_PRO_MODEL: process.env.GEMINI_PRO_MODEL,
   CRON_SECRET: process.env.CRON_SECRET,
 });
 

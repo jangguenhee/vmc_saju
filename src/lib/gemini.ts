@@ -1,10 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "@/constants/env";
 
-// Gemini AI models
-const GEMINI_FLASH_MODEL = "gemini-2.0-flash-exp";
-const GEMINI_PRO_MODEL = "gemini-2.0-flash-exp";
-
 // Initialize Gemini AI client
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 
@@ -165,7 +161,7 @@ export async function generateFreeSajuAnalysis(
   retryOptions?: RetryOptions
 ): Promise<string> {
   return withRetry(async () => {
-    const model = genAI.getGenerativeModel({ model: GEMINI_FLASH_MODEL });
+    const model = genAI.getGenerativeModel({ model: env.GEMINI_FLASH_MODEL });
     const prompt = generateDailySajuPrompt(input);
 
     const result = await model.generateContent(prompt);
@@ -189,7 +185,7 @@ export async function generateProSajuAnalysis(
   retryOptions?: RetryOptions
 ): Promise<string> {
   return withRetry(async () => {
-    const model = genAI.getGenerativeModel({ model: GEMINI_PRO_MODEL });
+    const model = genAI.getGenerativeModel({ model: env.GEMINI_PRO_MODEL });
     const prompt = generateDailySajuPrompt(input);
 
     const result = await model.generateContent(prompt);
