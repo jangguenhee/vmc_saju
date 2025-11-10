@@ -135,12 +135,16 @@ export function validateAnalysisJson(
     return !!(
       json.date &&
       json.overall_score &&
+      json.fortune_aspects?.career?.score &&
+      json.fortune_aspects?.wealth?.score &&
+      json.fortune_aspects?.health?.score &&
+      json.fortune_aspects?.relationship?.score &&
       json.time_slots?.morning?.score &&
       json.time_slots?.afternoon?.score &&
       json.time_slots?.evening?.score &&
-      json.aspects &&
       Array.isArray(json.actions) &&
-      json.lucky_elements
+      Array.isArray(json.warnings) &&
+      Array.isArray(json.lucky_elements)
     );
   }
 

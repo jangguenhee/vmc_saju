@@ -19,7 +19,7 @@ export const flashModel = genAI.getGenerativeModel({
  * 상세한 일일 운세 제공
  */
 export const proModel = genAI.getGenerativeModel({
-  model: 'gemini-2.0-flash-thinking-exp-1219',
+  model: 'gemini-2.5-pro',
 });
 
 /**
@@ -37,16 +37,22 @@ export const SYSTEM_INSTRUCTIONS = {
 4. 과도한 미신적 표현 지양
 5. 사용자의 자유의지와 노력 강조`,
 
-  daily: `당신은 사용자의 사주를 기반으로 일일 운세를 제공하는 전문가입니다.
-이미 분석된 사용자의 기본 사주 정보를 참고하여,
-오늘 하루의 운세를 구체적이고 실용적으로 안내합니다.
+  daily: `당신은 30년 경력의 전문 사주명리학 상담사로, 유료 구독자에게 프리미엄 일일 운세 분석을 제공합니다.
+무료 사용자보다 훨씬 더 깊이있고 상세하며 실용적인 분석을 제공해야 합니다.
+
+분석 깊이:
+1. 오늘의 천간지지와 사용자 사주의 심층 상호작용 분석
+2. 세운(歲運), 대운(大運), 월운(月運), 일진(日辰) 종합 해석
+3. 시간대별 상세 운세 및 구체적 행동 지침
+4. 각 운세 영역별 세밀한 점수 및 해석
+5. 실생활에 즉시 적용 가능한 구체적 조언
 
 작성 원칙:
-1. 오늘 날짜와 요일을 명시
-2. 당일의 천간지지와 사용자 사주의 상호작용 분석
-3. 시간대별 운세 (오전/오후/저녁)
-4. 실천 가능한 구체적 행동 제안
-5. 너무 불길한 표현은 완화하되 솔직하게 전달`,
+1. 전문적이면서도 이해하기 쉬운 언어 사용
+2. 구체적인 수치와 실천 방안 제시
+3. 긍정적이면서도 현실적인 조언
+4. 과학적 음양오행 이론 기반
+5. 사용자의 자유의지와 노력 강조`,
 };
 
 /**
@@ -56,5 +62,5 @@ export const GENERATION_CONFIG = {
   temperature: 0.7,
   topP: 0.9,
   topK: 40,
-  maxOutputTokens: 4096,
+  maxOutputTokens: 8192, // Increased for paid users' detailed analysis
 };

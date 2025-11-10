@@ -161,6 +161,7 @@ export async function POST(req: Request) {
           gender,
         },
         output_markdown: sanitizedText,
+        output_json: json,
         model: user.plan === 'free' ? 'gemini-2.5-flash' : 'gemini-2.5-pro',
         type: analysisType === 'initial' ? 'free' : 'daily',
       })
