@@ -25,9 +25,8 @@ export async function POST(req: Request) {
     });
   }
 
-  // Get the body
-  const payload = await req.json();
-  const body = JSON.stringify(payload);
+  // Get the body as text (important for signature verification)
+  const payload = await req.text();
 
   // Create a new Svix instance with your secret
   const wh = new Webhook(WEBHOOK_SECRET);
@@ -36,7 +35,7 @@ export async function POST(req: Request) {
 
   // Verify the payload with the headers
   try {
-    evt = wh.verify(body, {
+    evt = wh.verify(payload, {
       "svix-id": svix_id,
       "svix-timestamp": svix_timestamp,
       "svix-signature": svix_signature,
@@ -50,50 +49,115 @@ export async function POST(req: Request) {
 
   // Handle the webhook event
   const eventType = evt.type;
+  console.log(`[Clerk Webhook] Received event: ${eventType}`);
 
-  if (eventType === "user.created") {
-    const { id, email_addresses, first_name, last_name } = evt.data;
+  const supabase = await createPureClient();
 
-    // Get primary email
-    const primaryEmail = email_addresses.find(
-      (email) => email.id === evt.data.primary_email_address_id
-    );
+  try {
+    switch (eventType) {
+      case "user.created": {
+        const { id, email_addresses, first_name, last_name } = evt.data;
 
-    if (!primaryEmail) {
-      console.error("No primary email found for user:", id);
-      return new NextResponse("Error occurred -- no primary email", {
-        status: 400,
-      });
-    }
+        // Get primary email
+        const primaryEmail = email_addresses.find(
+          (email) => email.id === evt.data.primary_email_address_id
+        );
 
-    try {
-      // Create user in Supabase
-      const supabase = await createPureClient();
+        if (!primaryEmail) {
+          console.error("[Clerk Webhook] No primary email found for user:", id);
+          return new NextResponse("Error occurred -- no primary email", {
+            status: 400,
+          });
+        }
 
-      const { error } = await supabase.from("users").insert({
-        id, // Clerk user ID (TEXT type)
-        email: primaryEmail.email_address,
-        name: `${first_name || ""} ${last_name || ""}`.trim() || null,
-        plan: "free",
-        tests_remaining: 3,
-        created_at: new Date().toISOString(),
-      });
-
-      if (error) {
-        console.error("Error creating user in Supabase:", error);
-        return new NextResponse("Error occurred -- database insert failed", {
-          status: 500,
+        // Create user in Supabase
+        const { error } = await supabase.from("users").insert({
+          id, // Clerk user ID (TEXT type)
+          email: primaryEmail.email_address,
+          name: `${first_name || ""} ${last_name || ""}`.trim() || null,
+          plan: "free",
+          tests_remaining: 3,
         });
+
+        if (error) {
+          console.error("[Clerk Webhook] Error creating user:", error);
+          return new NextResponse("Error occurred -- database insert failed", {
+            status: 500,
+          });
+        }
+
+        console.log(`[Clerk Webhook] ✅ User created: ${primaryEmail.email_address} (${id})`);
+        break;
       }
 
-      console.log("User synced to Supabase:", id);
-    } catch (error) {
-      console.error("Error syncing user to Supabase:", error);
-      return new NextResponse("Error occurred -- sync failed", {
-        status: 500,
-      });
-    }
-  }
+      case "user.updated": {
+        const { id, email_addresses, first_name, last_name } = evt.data;
 
-  return new NextResponse("Webhook processed successfully", { status: 200 });
+        // Get primary email
+        const primaryEmail = email_addresses.find(
+          (email) => email.id === evt.data.primary_email_address_id
+        );
+
+        if (!primaryEmail) {
+          console.error("[Clerk Webhook] No primary email found for user update:", id);
+          return new NextResponse("Error occurred -- no primary email", {
+            status: 400,
+          });
+        }
+
+        // Update user in Supabase
+        const { error } = await supabase
+          .from("users")
+          .update({
+            email: primaryEmail.email_address,
+            name: `${first_name || ""} ${last_name || ""}`.trim() || null,
+          })
+          .eq("id", id);
+
+        if (error) {
+          console.error("[Clerk Webhook] Error updating user:", error);
+          return new NextResponse("Error occurred -- database update failed", {
+            status: 500,
+          });
+        }
+
+        console.log(`[Clerk Webhook] ✅ User updated: ${primaryEmail.email_address} (${id})`);
+        break;
+      }
+
+      case "user.deleted": {
+        const { id } = evt.data;
+
+        if (!id) {
+          console.error("[Clerk Webhook] No user ID found for deletion");
+          return new NextResponse("Error occurred -- no user ID", {
+            status: 400,
+          });
+        }
+
+        // Delete user from Supabase (CASCADE will delete related records)
+        const { error } = await supabase.from("users").delete().eq("id", id);
+
+        if (error) {
+          console.error("[Clerk Webhook] Error deleting user:", error);
+          return new NextResponse("Error occurred -- database delete failed", {
+            status: 500,
+          });
+        }
+
+        console.log(`[Clerk Webhook] ✅ User deleted: ${id}`);
+        break;
+      }
+
+      default:
+        console.log(`[Clerk Webhook] Unhandled event type: ${eventType}`);
+    }
+
+    return new NextResponse("Webhook processed successfully", { status: 200 });
+  } catch (error) {
+    console.error("[Clerk Webhook] Error processing webhook:", error);
+    return new NextResponse("Error occurred -- processing failed", {
+      status: 500,
+    });
+  }
 }

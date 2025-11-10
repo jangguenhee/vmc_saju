@@ -48,6 +48,8 @@
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-gradient: gradient 10s ease infinite;
+  --animate-progress: progress 2s ease-in-out infinite;
 
   @keyframes accordion-down {
     from {
@@ -63,6 +65,22 @@
     }
     to {
       height: 0;
+    }
+  }
+  @keyframes gradient {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+  @keyframes progress {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
     }
   }
 }
