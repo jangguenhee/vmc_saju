@@ -76,28 +76,20 @@ export async function GET(req: Request) {
 
         const birthInfo = latestAnalysis.input;
 
-        // Generate daily fortune prompt
-        const prompt = generateDailyFortunePrompt(
-          birthInfo.name,
-          birthInfo.birthDate,
-          birthInfo.birthTime,
-          birthInfo.gender,
-          today
-        );
-
         // Call Gemini API with timeout
         const result = await generateWithTimeout(
           {
-            model: proModel,
-            prompt,
+            name: birthInfo.name,
+            birthDate: birthInfo.birthDate,
+            birthTime: birthInfo.birthTime,
+            gender: birthInfo.gender,
             analysisType: 'daily',
-            temperature: 0.7,
           },
           30000 // 30 second timeout
         );
 
         // Validate result
-        if (!result.success || !result.markdown) {
+        if (!result.text) {
           console.error(
             `[Daily Report Cron] ❌ Generation failed for user ${user.id}`
           );
@@ -112,9 +104,9 @@ export async function GET(req: Request) {
             ...birthInfo,
             reportDate: today,
           },
-          output_markdown: result.markdown,
+          output_markdown: result.text,
           output_json: result.json,
-          model: 'gemini-2.0-flash-thinking-exp-1219',
+          model: 'gemini-2.5-pro',
           type: 'daily',
         });
 
