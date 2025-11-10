@@ -5,7 +5,24 @@ import { useRouter, useParams } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
-import { Sparkles, ArrowLeft, LogOut, Share2, Calendar, User } from "lucide-react";
+import { Sparkles, ArrowLeft, LogOut, Share2, Calendar, User, TrendingUp, Heart, Wallet, Briefcase, AlertTriangle, Star } from "lucide-react";
+
+type FortuneAspect = {
+  score: number;
+  advice: string;
+};
+
+type AnalysisJSON = {
+  overall_score?: number;
+  fortune_aspects?: {
+    career?: FortuneAspect;
+    wealth?: FortuneAspect;
+    health?: FortuneAspect;
+    relationship?: FortuneAspect;
+  };
+  lucky_elements?: string[];
+  warnings?: string[];
+};
 
 type AnalysisData = {
   id: string;
@@ -16,6 +33,7 @@ type AnalysisData = {
     gender: "male" | "female";
   };
   output_markdown: string;
+  output_json?: AnalysisJSON;
   created_at: string;
   type: "free" | "daily";
 };
@@ -44,6 +62,7 @@ export default function AnalysisDetailPage() {
           id: data.data.id,
           input: data.data.input,
           output_markdown: data.data.output_markdown,
+          output_json: data.data.output_json,
           created_at: data.data.created_at,
           type: data.data.type,
         });
@@ -77,6 +96,26 @@ export default function AnalysisDetailPage() {
   const handleSignOut = async () => {
     await signOut();
     router.push("/");
+  };
+
+  // Remove JSON code blocks from markdown
+  const cleanMarkdown = (markdown: string) => {
+    // Remove ```json ... ``` blocks
+    return markdown.replace(/```json\s*\n[\s\S]*?\n```/g, '').trim();
+  };
+
+  // Get score color
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-400";
+    if (score >= 60) return "text-yellow-400";
+    return "text-orange-400";
+  };
+
+  // Get score bg color
+  const getScoreBgColor = (score: number) => {
+    if (score >= 80) return "from-green-500/20 to-emerald-500/20 border-green-500/30";
+    if (score >= 60) return "from-yellow-500/20 to-orange-500/20 border-yellow-500/30";
+    return "from-orange-500/20 to-red-500/20 border-orange-500/30";
   };
 
   if (loading) {
@@ -185,6 +224,136 @@ export default function AnalysisDetailPage() {
           )}
         </div>
 
+        {/* JSON 데이터 시각화 */}
+        {analysis.output_json && (
+          <div className="mb-8 space-y-6">
+            {/* Overall Score */}
+            {analysis.output_json.overall_score !== undefined && (
+              <div className="rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-900/40 to-orange-900/40 p-6 backdrop-blur-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">종합 운세</h3>
+                    <p className="text-sm text-gray-300">오늘의 전체 운세 점수</p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-4xl font-bold ${getScoreColor(analysis.output_json.overall_score)}`}>
+                      {analysis.output_json.overall_score}
+                    </div>
+                    <div className="text-sm text-gray-400">/ 100</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Fortune Aspects */}
+            {analysis.output_json.fortune_aspects && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Career */}
+                {analysis.output_json.fortune_aspects.career && (
+                  <div className={`rounded-xl border bg-gradient-to-br p-5 backdrop-blur-sm ${getScoreBgColor(analysis.output_json.fortune_aspects.career.score)}`}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-5 w-5 text-blue-400" />
+                        <h4 className="font-semibold text-white">직업운</h4>
+                      </div>
+                      <span className={`text-2xl font-bold ${getScoreColor(analysis.output_json.fortune_aspects.career.score)}`}>
+                        {analysis.output_json.fortune_aspects.career.score}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-200">{analysis.output_json.fortune_aspects.career.advice}</p>
+                  </div>
+                )}
+
+                {/* Wealth */}
+                {analysis.output_json.fortune_aspects.wealth && (
+                  <div className={`rounded-xl border bg-gradient-to-br p-5 backdrop-blur-sm ${getScoreBgColor(analysis.output_json.fortune_aspects.wealth.score)}`}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-5 w-5 text-green-400" />
+                        <h4 className="font-semibold text-white">재물운</h4>
+                      </div>
+                      <span className={`text-2xl font-bold ${getScoreColor(analysis.output_json.fortune_aspects.wealth.score)}`}>
+                        {analysis.output_json.fortune_aspects.wealth.score}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-200">{analysis.output_json.fortune_aspects.wealth.advice}</p>
+                  </div>
+                )}
+
+                {/* Health */}
+                {analysis.output_json.fortune_aspects.health && (
+                  <div className={`rounded-xl border bg-gradient-to-br p-5 backdrop-blur-sm ${getScoreBgColor(analysis.output_json.fortune_aspects.health.score)}`}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Heart className="h-5 w-5 text-red-400" />
+                        <h4 className="font-semibold text-white">건강운</h4>
+                      </div>
+                      <span className={`text-2xl font-bold ${getScoreColor(analysis.output_json.fortune_aspects.health.score)}`}>
+                        {analysis.output_json.fortune_aspects.health.score}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-200">{analysis.output_json.fortune_aspects.health.advice}</p>
+                  </div>
+                )}
+
+                {/* Relationship */}
+                {analysis.output_json.fortune_aspects.relationship && (
+                  <div className={`rounded-xl border bg-gradient-to-br p-5 backdrop-blur-sm ${getScoreBgColor(analysis.output_json.fortune_aspects.relationship.score)}`}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-purple-400" />
+                        <h4 className="font-semibold text-white">대인관계운</h4>
+                      </div>
+                      <span className={`text-2xl font-bold ${getScoreColor(analysis.output_json.fortune_aspects.relationship.score)}`}>
+                        {analysis.output_json.fortune_aspects.relationship.score}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-200">{analysis.output_json.fortune_aspects.relationship.advice}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Lucky Elements */}
+            {analysis.output_json.lucky_elements && analysis.output_json.lucky_elements.length > 0 && (
+              <div className="rounded-xl border border-green-500/30 bg-gradient-to-br from-green-900/30 to-emerald-900/30 p-5 backdrop-blur-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <Star className="h-5 w-5 text-yellow-400" />
+                  <h4 className="font-semibold text-white">행운의 요소</h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {analysis.output_json.lucky_elements.map((element, index) => (
+                    <span
+                      key={index}
+                      className="rounded-full border border-green-400/30 bg-green-500/20 px-3 py-1 text-sm text-green-200"
+                    >
+                      {element}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Warnings */}
+            {analysis.output_json.warnings && analysis.output_json.warnings.length > 0 && (
+              <div className="rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-900/30 to-red-900/30 p-5 backdrop-blur-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-orange-400" />
+                  <h4 className="font-semibold text-white">주의사항</h4>
+                </div>
+                <ul className="space-y-2">
+                  {analysis.output_json.warnings.map((warning, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm text-gray-200">
+                      <span className="mt-1 text-orange-400">•</span>
+                      <span>{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 본문 - Markdown 렌더링 */}
         <article className="prose prose-invert prose-slate max-w-none rounded-xl border border-white/10 bg-white/5 p-8 shadow-lg backdrop-blur-sm">
           <ReactMarkdown
@@ -195,9 +364,29 @@ export default function AnalysisDetailPage() {
               p: ({node, ...props}) => <p className="text-gray-200" {...props} />,
               strong: ({node, ...props}) => <strong className="text-yellow-300" {...props} />,
               li: ({node, ...props}) => <li className="text-gray-200" {...props} />,
+              code: ({node, className, children, ...props}) => {
+                // Hide JSON code blocks
+                const isJsonBlock = className === 'language-json';
+                if (isJsonBlock) return null;
+                return <code className={className} {...props}>{children}</code>;
+              },
+              pre: ({node, children, ...props}) => {
+                // Hide pre tags containing JSON code blocks
+                const codeChild = node?.children?.[0];
+                if (codeChild && 'tagName' in codeChild && codeChild.tagName === 'code') {
+                  const codeProps = codeChild.properties;
+                  if (codeProps && 'className' in codeProps) {
+                    const classNames = codeProps.className;
+                    if (Array.isArray(classNames) && classNames.includes('language-json')) {
+                      return null;
+                    }
+                  }
+                }
+                return <pre {...props}>{children}</pre>;
+              },
             }}
           >
-            {analysis.output_markdown}
+            {cleanMarkdown(analysis.output_markdown)}
           </ReactMarkdown>
         </article>
 

@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [todayReport, setTodayReport] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,12 +50,13 @@ export default function DashboardPage() {
         });
       }
 
-      // TODO: Fetch recent analyses
-      // const analysesRes = await fetch("/api/analysis/history");
-      // const analysesData = await analysesRes.json();
-      // if (analysesData.success) {
-      //   setAnalyses(analysesData.data);
-      // }
+      // Fetch recent analyses
+      const analysesRes = await fetch("/api/analysis/history");
+      const analysesData = await analysesRes.json();
+      if (analysesData.success) {
+        setAnalyses(analysesData.data.analyses);
+        setTodayReport(analysesData.data.todayReport);
+      }
     } catch (error) {
       console.error("Failed to fetch data:", error);
     } finally {
@@ -224,11 +226,26 @@ export default function DashboardPage() {
                   <div className="rounded-full bg-green-500/20 p-2 border border-green-400/30">
                     <Calendar className="h-5 w-5 text-green-300" />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-green-100">일일 리포트</h4>
-                    <p className="mt-1 text-sm text-green-200">
-                      매일 아침 자동으로 오늘의 운세가 생성됩니다
-                    </p>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-green-100">오늘의 일일 리포트</h4>
+                    {todayReport ? (
+                      <>
+                        <p className="mt-1 text-sm text-green-200">
+                          오늘의 운세가 준비되었습니다
+                        </p>
+                        <Link
+                          href={`/analysis/${todayReport.id}`}
+                          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          오늘의 운세 보기
+                        </Link>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-sm text-green-200">
+                        매일 자정 이후 오늘의 운세가 자동으로 생성됩니다
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

@@ -80,6 +80,7 @@ export async function GET(
         id: analysis.id,
         input: analysis.input,
         output_markdown: analysis.output_markdown,
+        output_json: analysis.output_json,
         model: analysis.model,
         type: analysis.type,
         created_at: analysis.created_at,
